@@ -1,0 +1,17 @@
+# Kredensial dan rahasia -- JANGAN PERNAH commit file-file ini
+.env
+client_secret.json
+token.json
+
+# Database lokal
+agent_memory.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# Editor
+.vscode/
