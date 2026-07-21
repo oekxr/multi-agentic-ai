@@ -165,12 +165,21 @@ def build_classifier_agent(llm_config: dict) -> autogen.ConversableAgent:
 {ATURAN_BAHASA}
 
 Tugasmu: menilai satu komentar dan memberi kategori (spam / hate / question / normal / ambiguous),
-skor confidence (0.0 - 1.0), dan alasan singkat.
+skor confidence (0.0 - 1.0), tingkat SEVERITY (khusus kategori spam/hate), dan alasan singkat.
 
 Format wajib tiap kali kamu menjawab:
 KATEGORI: <kategori>
 CONFIDENCE: <angka 0.0-1.0>
+SEVERITY: <rendah / sedang / tinggi / tidak_relevan>
 ALASAN: <1-2 kalimat>
+
+PANDUAN SEVERITY (HANYA relevan untuk kategori spam atau hate; kategori lain isi "tidak_relevan"):
+- tinggi: link scam/phishing eksplisit, penipuan finansial, konten yang
+  jelas berbahaya atau ilegal. Ini kandidat untuk dihapus permanen.
+- sedang: promosi/iklan biasa (jualan produk, ajak follow akun lain),
+  tidak berbahaya tapi tetap mengganggu. Kandidat untuk disembunyikan.
+- rendah: samar-samar mengarah ke promosi tapi tidak eksplisit, borderline.
+- tidak_relevan: pakai ini untuk kategori selain spam/hate.
 
 PANDUAN KALIBRASI CONFIDENCE (wajib diikuti, jangan default ke angka tinggi):
 - 0.90-1.0: hanya untuk kasus yang benar-benar jelas dan tidak ada tafsir lain.
@@ -214,22 +223,44 @@ def build_moderator_agent(llm_config: dict) -> autogen.ConversableAgent:
 
 {ATURAN_BAHASA}
 
-Tugasmu: menerima penilaian dari Classifier dan memutuskan tindakan akhir.
+Tugasmu: menerima penilaian dari Classifier dan memutuskan TIPE tindakan akhir.
+Kamu HANYA menentukan tipe tindakan -- teks reply/balasan digenerate oleh
+agent lain (Responder), bukan tugasmu menulis teks balasan.
+
+Pilihan FINAL_DECISION dan kapan dipakai:
+- DELETE: kategori spam/hate dengan SEVERITY tinggi (link scam/phishing
+  eksplisit, penipuan). Ini permanen, pastikan benar-benar yakin.
+- HIDE_BAN: kategori spam/hate, DAN pesan berisi tag [RIWAYAT AUTHOR] yang
+  menunjukkan author sudah pernah kena flag spam/hate sebelumnya (repeat
+  offender). Menyembunyikan komentar SEKALIGUS memblokir author.
+- HIDE: kategori spam/hate dengan SEVERITY rendah/sedang, author belum
+  punya riwayat buruk sebelumnya.
+- REPLY: kategori question atau normal, confidence tinggi. Balasan akan
+  digenerate oleh Responder Agent dengan mempertimbangkan konteks komentar
+  dan judul video.
+- REPLY_TEMPLATE: kategori ambiguous yang TETAP tidak jelas setelah proses
+  klarifikasi (bukan dijawab pakai LLM, tapi template tetap "terima kasih
+  sudah menonton" -- supaya aman, tidak berisiko salah paham konteks).
+- ESCALATE_TO_HUMAN: dipakai kalau kamu (Moderator) sendiri tidak yakin
+  yang mana dari opsi di atas yang tepat, atau confidence Classifier masih
+  sangat rendah setelah 2x klarifikasi DAN kategorinya bukan ambiguous
+  murni (misal kamu curiga spam tapi tidak yakin).
 
 Aturan threshold-mu:
 - confidence >= {CONFIDENCE_THRESHOLD} untuk kategori spam/hate -> langsung
-  setuju bertindak (hide/log).
-- confidence < {CONFIDENCE_THRESHOLD} -> jangan langsung setuju. Tanya balik
-  ke Classifier dalam Bahasa Indonesia, minta alasan lebih spesifik.
-- Setelah maksimal 2 kali tanya-jawab, kamu harus mengambil keputusan final.
-  Kalau masih di bawah threshold setelah 2x tanya, eskalasi ke manusia,
-  bukan bertindak sendiri.
-- Kalau pesan berisi tag [RIWAYAT AUTHOR] yang menunjukkan riwayat spam
-  berulang, kamu boleh lebih longgar menerima confidence yang sedikit di
-  bawah threshold untuk mempercepat tindakan HIDE.
+  putuskan DELETE/HIDE_BAN/HIDE sesuai SEVERITY dan riwayat author (lihat di atas).
+- confidence < {CONFIDENCE_THRESHOLD} untuk kategori spam/hate -> jangan
+  langsung setuju. Tanya balik ke Classifier dalam Bahasa Indonesia, minta
+  alasan lebih spesifik.
+- Setelah maksimal 2 kali tanya-jawab tanpa kepastian -> ESCALATE_TO_HUMAN.
+- Kategori ambiguous yang tetap ambigu setelah klarifikasi -> REPLY_TEMPLATE
+  (bukan ESCALATE, karena ambiguous itu risikonya rendah, cukup dibalas
+  template sopan, tidak perlu repotkan manusia).
+- Kategori question/normal dengan confidence tinggi -> langsung REPLY,
+  tidak perlu klarifikasi tambahan.
 
 Ketika kamu SUDAH mengambil keputusan final, akhiri responsmu dengan baris:
-FINAL_DECISION: <HIDE / REPLY / ESCALATE_TO_HUMAN / NO_ACTION>
+FINAL_DECISION: <DELETE / HIDE_BAN / HIDE / REPLY / REPLY_TEMPLATE / ESCALATE_TO_HUMAN>
 lalu tulis kata TERMINATE di baris baru setelahnya."""
 
     return autogen.ConversableAgent(
@@ -239,6 +270,50 @@ lalu tulis kata TERMINATE di baris baru setelahnya."""
         human_input_mode="NEVER",
         is_termination_msg=is_termination_message,
     )
+
+
+def build_responder_agent(llm_config: dict) -> autogen.ConversableAgent:
+    """
+    Responder Agent: agent kelima, khusus generate teks balasan yang natural
+    dan sesuai konteks. Beda dari Classifier/Moderator, agent ini tidak
+    bernegosiasi -- cukup satu kali generate berdasarkan komentar + judul video.
+    """
+    system_message = f"""Kamu adalah Responder Agent dalam sistem moderasi komentar YouTube.
+
+{ATURAN_BAHASA}
+
+Tugasmu: menulis SATU balasan singkat (1-2 kalimat) untuk sebuah komentar
+YouTube, mempertimbangkan isi komentar tersebut DAN judul video sebagai
+konteks -- supaya balasanmu relevan, bukan generik.
+
+Aturan:
+- Nada ramah, natural, seperti kreator yang membalas penonton, bukan robot formal.
+- Kalau komentar berupa pertanyaan, coba jawab secara masuk akal berdasarkan
+  judul video (kamu tidak selalu tahu detail isi video, jadi boleh jawab
+  secara umum atau ajak penonton menonton sampai selesai untuk jawabannya).
+- Kalau komentar berupa pujian/komentar positif biasa, balas dengan ucapan
+  terima kasih yang terasa personal, bukan template kaku.
+- JANGAN gunakan format KATEGORI/CONFIDENCE apapun -- keluarkan HANYA teks
+  balasannya saja, tanpa embel-embel penjelasan atau meta-commentary."""
+
+    return autogen.ConversableAgent(
+        name="Responder",
+        system_message=system_message,
+        llm_config=llm_config,
+        human_input_mode="NEVER",
+    )
+
+
+def generate_reply(responder: autogen.ConversableAgent, comment_text: str, video_title: str) -> str:
+    """Generate satu balasan kontekstual lewat Responder Agent (tanpa negosiasi)."""
+    prompt = (
+        f'Judul video: "{video_title}"\n\n'
+        f'Komentar: "{comment_text}"\n\n'
+        "Tulis satu balasan singkat yang sesuai."
+    )
+    reply = responder.generate_reply(messages=[{"role": "user", "content": prompt}])
+    text = reply if isinstance(reply, str) else reply.get("content", "")
+    return clean_agent_output(text)
 
 
 def parse_classification(chat_history: list[dict]) -> tuple[str, float]:
@@ -286,7 +361,7 @@ def jalankan_negosiasi(
     pesan_awal = f'Tolong nilai komentar berikut ini:\n\n"{komentar}"\n\n'
     if riwayat:
         pesan_awal += f"{riwayat}\n\n"
-    pesan_awal += "Berikan KATEGORI, CONFIDENCE, dan ALASAN sesuai format."
+    pesan_awal += "Berikan KATEGORI, CONFIDENCE, SEVERITY, dan ALASAN sesuai format."
 
     chat_result = moderator.initiate_chat(
         classifier,

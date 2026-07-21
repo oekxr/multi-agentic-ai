@@ -1,139 +1,156 @@
 """
-Overseer Agent: dashboard human-in-the-loop untuk komentar yang dieskalasi
-Moderator (kasus confidence rendah yang tidak terselesaikan lewat negosiasi).
+Overseer Agent: dashboard human-in-the-loop, sebagai Flask Blueprint.
 
-Implementasi memakai Flask dengan penyimpanan in-memory (bukan database
-permanen) -- cukup untuk proof-of-concept alur eskalasi.
+Di-mount ke Flask app utama (web_app.py) lewat url_prefix="/overseer",
+supaya cuma butuh SATU port untuk deploy (penting untuk Render).
+
+State (antrean review, keputusan manusia) disimpan di overseer_state.py,
+bukan di sini -- karena state itu dipakai juga oleh orchestrator.py di
+thread yang berbeda. Modul ini murni lapisan routing/tampilan.
+
+Dashboard difilter per channel_id yang sedang login -- user cuma lihat
+eskalasi dari video miliknya sendiri, bukan milik user lain.
+
+Layout (sidebar, badge notifikasi) memakai ui_layout.py yang sama dengan
+halaman /videos, supaya tampilan konsisten di seluruh aplikasi.
 """
 
-import threading
-import time
-import uuid
+from flask import Blueprint, jsonify, redirect, render_template_string, request, session, url_for
 
-from flask import Flask, render_template_string, request
+import overseer_state
+import ui_layout
 
-app = Flask(__name__)
-
-_lock = threading.Lock()
-_pending: dict[str, dict] = {}
-_resolutions: dict[str, str] = {}
-
-# Demo: 60 detik. Untuk sistem yang benar-benar deploy, ganti ke 86400 (24 jam)
-# sesuai rencana awal "auto-reject sebagai safety default".
-AUTO_REJECT_TIMEOUT_SECONDS = 60
+bp = Blueprint("overseer", __name__)
 
 DASHBOARD_TEMPLATE = """
 <!doctype html>
 <html>
 <head>
-  <title>Overseer Dashboard</title>
-  <meta http-equiv="refresh" content="5">
-  <style>
-    body { font-family: sans-serif; margin: 2rem; background: #fafafa; }
-    h1 { font-size: 1.4rem; }
-    table { border-collapse: collapse; width: 100%; background: white; }
-    th, td { border: 1px solid #ddd; padding: 0.6rem; text-align: left; }
-    th { background: #f0f0f0; }
-    button { padding: 0.4rem 0.8rem; margin-right: 0.4rem; border: none; border-radius: 4px; cursor: pointer; }
-    .approve { background: #a5d6a7; }
-    .reject { background: #ef9a9a; }
-  </style>
+<title>Konfirmasi - Comment Moderator</title>
+<style>
+""" + ui_layout.BASE_STYLE + """
+  .live-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success); margin-right: 0.4rem; animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .review-card {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem 1.2rem; margin-bottom: 0.9rem;
+  }
+  .review-card .meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+  .review-card .video-title { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
+  .review-card .author { font-size: 0.82rem; font-weight: 600; }
+  .review-card .comment-text {
+    background: var(--info-bg); border-radius: 8px; padding: 0.7rem 0.9rem;
+    font-size: 0.87rem; margin-bottom: 0.7rem; line-height: 1.4;
+  }
+  .review-card .stats { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; }
+  .chip {
+    display: inline-block; padding: 0.2rem 0.6rem; border-radius: 20px;
+    font-size: 0.72rem; font-weight: 600; background: var(--warning-bg); color: var(--warning);
+  }
+  .actions { display: flex; gap: 0.6rem; }
+  button {
+    padding: 0.5rem 1.1rem; border: none; border-radius: 6px; cursor: pointer;
+    font-weight: 600; font-size: 0.82rem;
+  }
+  .approve { background: var(--success); color: white; }
+  .reject { background: var(--card-bg); color: var(--danger); border: 1px solid var(--danger-bg) !important; }
+</style>
 </head>
 <body>
-  <h1>Komentar Menunggu Review Manusia</h1>
-  <p>Halaman ini refresh otomatis tiap 5 detik.</p>
-  {% if items %}
-  <table>
-    <tr><th>Author</th><th>Komentar</th><th>Kategori (AI)</th><th>Confidence</th><th>Aksi</th></tr>
-    {% for item_id, item in items.items() %}
-    <tr>
-      <td>{{ item.author_id }}</td>
-      <td>{{ item.comment }}</td>
-      <td>{{ item.category }}</td>
-      <td>{{ item.confidence }}</td>
-      <td>
-        <form method="post" action="/decide/{{ item_id }}" style="display:inline">
-          <button class="approve" name="decision" value="approve">Setuju (Hide)</button>
-          <button class="reject" name="decision" value="reject">Tolak (Biarkan)</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </table>
-  {% else %}
-  <p>Tidak ada komentar yang menunggu review saat ini.</p>
-  {% endif %}
+<div class="app-shell">
+""" + ui_layout.sidebar_html("konfirmasi") + """
+  <div class="main">
+    <div class="topbar">
+      <h1><span class="live-dot"></span>Konfirmasi</h1>
+      <p>Komentar yang butuh keputusan manusia -- update tiap 5 detik</p>
+    </div>
+    <div class="page-content">
+      <div class="scroll-box" id="review-container">
+        <p class="empty-state">Memuat...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+""" + ui_layout.SIDEBAR_SCRIPT + """
+
+async function refreshPending() {
+  try {
+    const res = await fetch('/overseer/api/pending');
+    const data = await res.json();
+    const container = document.getElementById('review-container');
+
+    if (!data.items || data.items.length === 0) {
+      container.innerHTML = '<p class="empty-state">Tidak ada komentar yang menunggu review saat ini.</p>';
+      return;
+    }
+
+    container.innerHTML = data.items.map(function(item) {
+      return '<div class="review-card">' +
+        '<div class="meta">' +
+          '<span class="video-title">' + item.video_title + '</span>' +
+          '<span class="chip">' + item.category + ' &middot; ' + item.confidence + '</span>' +
+        '</div>' +
+        '<div class="author">' + item.author_display_name + '</div>' +
+        '<div class="comment-text">' + item.text + '</div>' +
+        '<div class="actions">' +
+          '<button class="approve" onclick="decide(\\'' + item.item_id + '\\',\\'approve\\')">Setuju (Hide)</button>' +
+          '<button class="reject" onclick="decide(\\'' + item.item_id + '\\',\\'reject\\')">Tolak, Biarkan</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch (err) {
+    console.error('Gagal ambil data pending:', err);
+  }
+}
+
+async function decide(itemId, decision) {
+  await fetch('/overseer/decide/' + itemId, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'decision=' + decision
+  });
+  refreshPending();
+  refreshPendingBadge();
+}
+
+refreshPending();
+setInterval(refreshPending, 5000);
+</script>
 </body>
 </html>
 """
 
 
-def add_pending_item(author_id: str, comment: str, category: str, confidence: float) -> str:
-    """Tambahkan satu item ke antrean review manusia, kembalikan ID unik-nya."""
-    item_id = str(uuid.uuid4())
-    with _lock:
-        _pending[item_id] = {
-            "author_id": author_id,
-            "comment": comment,
-            "category": category,
-            "confidence": confidence,
-        }
-    return item_id
-
-
-def wait_for_human_decision(item_id: str) -> str:
-    """
-    Blokir (menunggu) sampai manusia memutuskan lewat dashboard, atau sampai
-    timeout habis. Kalau timeout, auto-reject (safety default: jangan
-    bertindak sendiri kalau tidak ada respons manusia).
-    """
-    waited = 0
-    while waited < AUTO_REJECT_TIMEOUT_SECONDS:
-        with _lock:
-            if item_id in _resolutions:
-                decision = _resolutions.pop(item_id)
-                _pending.pop(item_id, None)
-                return decision
-        time.sleep(1)
-        waited += 1
-
-    with _lock:
-        _pending.pop(item_id, None)
-    print(f"[Overseer] Timeout untuk item {item_id}, auto-reject (safety default).")
-    return "reject"
-
-
-@app.route("/")
+@bp.route("/")
 def dashboard():
-    with _lock:
-        items_copy = dict(_pending)
-    return render_template_string(DASHBOARD_TEMPLATE, items=items_copy)
+    channel_id = session.get("channel_id")
+    if not channel_id:
+        return redirect(url_for("index"))
+    return render_template_string(DASHBOARD_TEMPLATE)
 
 
-@app.route("/decide/<item_id>", methods=["POST"])
+@bp.route("/api/pending")
+def api_pending():
+    channel_id = session.get("channel_id")
+    if not channel_id:
+        return jsonify({"items": []}), 401
+
+    pending = overseer_state.get_pending_for_channel(channel_id)
+    items = [{"item_id": item_id, **data} for item_id, data in pending.items()]
+    return jsonify({"items": items})
+
+
+@bp.route("/decide/<item_id>", methods=["POST"])
 def decide(item_id):
+    channel_id = session.get("channel_id")
+    if not channel_id:
+        return redirect(url_for("index"))
+
     decision = request.form.get("decision", "reject")
-    with _lock:
-        _resolutions[item_id] = decision
-    return dashboard()
-
-
-def start_overseer(port: int | None = None) -> threading.Thread:
-    """
-    Jalankan Flask di background thread, tidak memblokir program utama.
-
-    Port diambil dari environment variable PORT kalau ada (dipakai platform
-    deployment seperti Railway yang menentukan port secara dinamis),
-    kalau tidak ada baru pakai 5000 (default untuk development lokal).
-    Host di-bind ke 0.0.0.0 (bukan cuma localhost) supaya bisa diakses dari
-    luar container saat deploy.
-    """
-    import os
-
-    actual_port = port or int(os.environ.get("PORT", 5000))
-    thread = threading.Thread(
-        target=lambda: app.run(host="0.0.0.0", port=actual_port, debug=False, use_reloader=False),
-        daemon=True,
-    )
-    thread.start()
-    return thread
+    overseer_state.resolve(item_id, decision)
+    return jsonify({"ok": True})

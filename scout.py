@@ -9,8 +9,18 @@ atau Moderator, dan berkomunikasi lewat queue (bukan manggil fungsi langsung).
 
 import queue
 import random
+import socket
 import threading
 import time
+
+# PENTING: library google-auth/googleapiclient TIDAK punya timeout default.
+# Kalau ada request jaringan yang "menggantung" (jaringan lag, token refresh
+# stuck, dll), seluruh loop Scout bisa macet total tanpa pernah error --
+# karena video diproses satu per satu secara berurutan. Timeout global ini
+# jadi jaring pengaman: request apapun yang lebih dari 30 detik otomatis
+# dibatalkan dengan error (yang sudah ditangani try/except di bawah),
+# bukan macet selamanya tanpa pesan apapun.
+socket.setdefaulttimeout(30)
 
 SIMULATED_COMMENTS = [
     {"author_id": "user_a", "text": "Wah videonya keren banget, makasih ilmunya!"},
@@ -53,62 +63,114 @@ def start_scout(
     return thread
 
 
-def start_youtube_scout(
+def start_multi_video_scout(
     output_queue: "queue.Queue",
-    video_id: str,
     interval_seconds: int = 30,
 ) -> threading.Thread:
     """
-    Versi ASLI Scout: polling komentar sungguhan dari sebuah video YouTube
-    setiap `interval_seconds`, dan hanya mengirim komentar yang BELUM
-    pernah dilihat sebelumnya (dilacak lewat `comment_id` di memory, bukan
-    persisten -- kalau program di-restart, komentar lama bisa muncul lagi
-    sebagai "baru". Untuk sistem produksi, ini sebaiknya disimpan di
-    database, bukan set() di memory).
+    Versi ASLI Scout, multi-user & multi-video: tiap `interval_seconds`,
+    ambil DAFTAR video aktif dari SEMUA user yang login (lewat
+    user_store.get_all_active_videos()), lalu polling komentar baru di
+    masing-masing video pakai kredensial pemiliknya sendiri.
 
-    interval_seconds default 30 detik -- YouTube API punya kuota harian
-    terbatas, jangan polling terlalu sering supaya kuota tidak cepat habis.
+    Setiap video dilacak `seen_comment_ids` terpisah (di memory proses ini,
+    bukan persisten -- kalau program di-restart, komentar lama di tiap
+    video akan ditandai ulang sebagai "sudah dilihat" di polling pertama,
+    bukan diproses ulang -- lihat logika _is_first_poll_for_video di bawah).
+
+    interval_seconds default 30 detik -- YouTube API py kuota harian
+    terbatas; makin banyak video aktif, makin besar kuota yang terpakai
+    tiap putaran (masing-masing video = 1 unit kuota untuk cek komentar).
     """
+    import user_store
     import youtube_client
+    import activity_log
+
+    def _build_service_for_video(video: dict):
+        """Bangun YouTube service dari credentials pemilik video (auto-refresh via user_store)."""
+        creds = user_store.get_credentials_for_channel(video["channel_id"])
+        return youtube_client.build_service(creds)
 
     def _loop():
-        seen_comment_ids: set[str] = set()
-        is_first_poll = True
+        # seen_comment_ids per video_id, dan flag apakah video ini sudah
+        # pernah di-poll sebelumnya (untuk logika "skip histori lama" pas
+        # pertama kali sebuah video baru terdeteksi aktif).
+        seen_comment_ids: dict[str, set] = {}
 
         while True:
+            print(f"[Scout] Mulai putaran polling ({len(seen_comment_ids)} video sudah dikenal)...")
             try:
-                comments = youtube_client.fetch_latest_comments(video_id)
+                active_videos = user_store.get_all_active_videos()
             except Exception as exc:
-                print(f"[Scout] Gagal mengambil komentar: {exc}")
+                print(f"[Scout] Gagal ambil daftar video aktif: {exc}")
                 time.sleep(interval_seconds)
                 continue
 
-            if is_first_poll:
-                # Polling pertama: tandai SEMUA komentar yang sudah ada
-                # sebagai "sudah dilihat" TANPA diproses. Supaya sistem
-                # cuma bereaksi ke komentar yang benar-benar baru muncul
-                # setelah program dijalankan, bukan memproses ulang seluruh
-                # histori lama video setiap kali di-restart.
-                for comment in comments:
-                    seen_comment_ids.add(comment["comment_id"])
-                is_first_poll = False
-                print(
-                    f"[Scout] Polling pertama: {len(comments)} komentar lama "
-                    "ditandai sudah dilihat (tidak diproses). Menunggu komentar baru..."
-                )
-                time.sleep(interval_seconds)
-                continue
+            for video in active_videos:
+                video_id = video["video_id"]
+                is_new_video = video_id not in seen_comment_ids
 
-            for comment in comments:
-                if comment["comment_id"] in seen_comment_ids:
+                try:
+                    youtube = _build_service_for_video(video)
+                    comments = youtube_client.fetch_latest_comments(youtube, video_id)
+                except Exception as exc:
+                    print(f"[Scout] Gagal ambil komentar video '{video['title']}': {exc}")
                     continue
-                seen_comment_ids.add(comment["comment_id"])
-                output_queue.put(comment)
-                print(
-                    f"[Scout] Komentar baru dari {comment['author_display_name']}: "
-                    f"{comment['text'][:50]}"
-                )
 
+                if is_new_video:
+                    # Video baru terdeteksi aktif: tandai semua komentar
+                    # yang sudah ada TANPA diproses, supaya tidak
+                    # memproses ulang seluruh histori lama.
+                    seen_comment_ids[video_id] = {c["comment_id"] for c in comments}
+                    print(
+                        f"[Scout] Video baru '{video['title']}': "
+                        f"{len(comments)} komentar lama ditandai sudah dilihat."
+                    )
+                    continue
+
+                new_comment_count = 0
+                for comment in comments:
+                    if comment["comment_id"] in seen_comment_ids[video_id]:
+                        continue
+                    seen_comment_ids[video_id].add(comment["comment_id"])
+                    new_comment_count += 1
+
+                    # Sertakan konteks video supaya Responder Agent nanti
+                    # bisa generate reply yang mempertimbangkan judul video,
+                    # dan supaya aksi (hide/delete/reply) tahu pakai
+                    # kredensial channel mana.
+                    comment["video_id"] = video_id
+                    comment["video_title"] = video["title"]
+                    comment["channel_id"] = video["channel_id"]
+                    output_queue.put(comment)
+                    print(
+                        f"[Scout] Komentar baru di '{video['title']}' dari "
+                        f"{comment['author_display_name']}: {comment['text'][:50]}"
+                    )
+                    activity_log.log_event(
+                        channel_id=video["channel_id"],
+                        video_title=video["title"],
+                        message=f"Komentar baru dari {comment['author_display_name']}: \"{comment['text'][:60]}\"",
+                        level="info",
+                    )
+
+                if new_comment_count == 0:
+                    # Heartbeat: supaya user TAHU bot masih aktif memeriksa,
+                    # bukan diam karena macet. Tanpa ini, panel status kosong
+                    # terus kalau kebetulan tidak ada komentar baru -- user
+                    # tidak bisa bedakan "bot mati" vs "memang belum ada
+                    # komentar baru".
+                    activity_log.log_event(
+                        channel_id=video["channel_id"],
+                        video_title=video["title"],
+                        message="Diperiksa, belum ada komentar baru.",
+                        level="info",
+                    )
+
+            # Video yang sudah tidak lagi aktif (di-nonaktifkan user) tidak
+            # perlu dibersihkan dari seen_comment_ids -- dibiarkan saja,
+            # tidak masalah kalau video itu diaktifkan lagi nanti.
+            print(f"[Scout] Putaran selesai, tidur {interval_seconds} detik.")
             time.sleep(interval_seconds)
 
     thread = threading.Thread(target=_loop, daemon=True)

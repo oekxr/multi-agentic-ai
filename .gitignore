@@ -1,10 +1,12 @@
 # Kredensial dan rahasia -- JANGAN PERNAH commit file-file ini
 .env
 client_secret.json
+client_secret_web.json
 token.json
 
 # Database lokal
 agent_memory.db
+users.db
 
 # Python
 __pycache__/
