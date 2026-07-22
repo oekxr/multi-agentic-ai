@@ -78,6 +78,12 @@ DASHBOARD_TEMPLATE = """
 <script>
 """ + ui_layout.SIDEBAR_SCRIPT + """
 
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
 async function refreshPending() {
   try {
     const res = await fetch('/overseer/api/pending');
@@ -92,17 +98,23 @@ async function refreshPending() {
     container.innerHTML = data.items.map(function(item) {
       return '<div class="review-card">' +
         '<div class="meta">' +
-          '<span class="video-title">' + item.video_title + '</span>' +
-          '<span class="chip">' + item.category + ' &middot; ' + item.confidence + '</span>' +
+          '<span class="video-title">' + escapeHtml(item.video_title) + '</span>' +
+          '<span class="chip">' + escapeHtml(item.category) + ' &middot; ' + escapeHtml(item.confidence) + '</span>' +
         '</div>' +
-        '<div class="author">' + item.author_display_name + '</div>' +
-        '<div class="comment-text">' + item.text + '</div>' +
+        '<div class="author">' + escapeHtml(item.author_display_name) + '</div>' +
+        '<div class="comment-text">' + escapeHtml(item.text) + '</div>' +
         '<div class="actions">' +
-          '<button class="approve" onclick="decide(\\'' + item.item_id + '\\',\\'approve\\')">Setuju (Hide)</button>' +
-          '<button class="reject" onclick="decide(\\'' + item.item_id + '\\',\\'reject\\')">Tolak, Biarkan</button>' +
+          '<button class="approve" data-item-id="' + item.item_id + '" data-decision="approve">Setuju (Hide)</button>' +
+          '<button class="reject" data-item-id="' + item.item_id + '" data-decision="reject">Tolak, Biarkan</button>' +
         '</div>' +
       '</div>';
     }).join('');
+
+    container.querySelectorAll('[data-item-id]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        decide(btn.getAttribute('data-item-id'), btn.getAttribute('data-decision'));
+      });
+    });
   } catch (err) {
     console.error('Gagal ambil data pending:', err);
   }

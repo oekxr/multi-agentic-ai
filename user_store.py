@@ -59,6 +59,16 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_settings (
+                channel_id TEXT PRIMARY KEY,
+                sensitive_words_json TEXT NOT NULL DEFAULT '[]',
+                ambiguous_template TEXT NOT NULL DEFAULT 'Terima kasih sudah menonton!',
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
 
 
 def save_user(
@@ -173,3 +183,52 @@ def get_credentials_for_channel(channel_id: str):
         update_credentials(channel_id, creds.to_json())
 
     return creds
+
+
+DEFAULT_AMBIGUOUS_TEMPLATE = "Terima kasih sudah menonton!"
+
+
+def get_settings(channel_id: str) -> dict:
+    """
+    Ambil pengaturan custom user: daftar kata sensitif dan template balasan
+    untuk komentar ambigu. Kalau belum pernah diset, kembalikan default
+    (daftar kata kosong, template bawaan).
+    """
+    import json
+
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT sensitive_words_json, ambiguous_template FROM user_settings WHERE channel_id = ?",
+            (channel_id,),
+        ).fetchone()
+
+    if not row:
+        return {"sensitive_words": [], "ambiguous_template": DEFAULT_AMBIGUOUS_TEMPLATE}
+
+    return {
+        "sensitive_words": json.loads(row["sensitive_words_json"]),
+        "ambiguous_template": row["ambiguous_template"],
+    }
+
+
+def save_settings(channel_id: str, sensitive_words: list, ambiguous_template: str) -> None:
+    """Simpan atau update pengaturan custom user."""
+    import json
+
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO user_settings (channel_id, sensitive_words_json, ambiguous_template, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(channel_id) DO UPDATE SET
+                sensitive_words_json = excluded.sensitive_words_json,
+                ambiguous_template = excluded.ambiguous_template,
+                updated_at = excluded.updated_at
+            """,
+            (
+                channel_id,
+                json.dumps(sensitive_words),
+                ambiguous_template,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )

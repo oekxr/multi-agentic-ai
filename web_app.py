@@ -46,6 +46,35 @@ CLIENT_SECRET_WEB_FILE = "client_secret_web.json"
 # dari "1 bulan terakhir" ke rentang lain.
 VIDEO_LOOKBACK_DAYS = 30
 
+
+def _bootstrap_client_secret_from_env() -> None:
+    """
+    client_secret_web.json sengaja di-gitignore (rahasia), jadi tidak ikut
+    ter-push ke GitHub -- artinya server deployment (Render) tidak akan
+    punya file ini secara default. Fungsi ini membuatnya dari environment
+    variable CLIENT_SECRET_WEB_JSON_BASE64 (isi file di-encode base64),
+    supaya Flow.from_client_secrets_file() tetap bisa membaca filenya.
+
+    Kalau file sudah ada di disk (kasus development lokal), tidak melakukan
+    apa-apa.
+    """
+    import base64
+
+    if os.path.exists(CLIENT_SECRET_WEB_FILE):
+        return
+
+    encoded = os.environ.get("CLIENT_SECRET_WEB_JSON_BASE64")
+    if not encoded:
+        return  # biarkan error asli muncul kalau memang dibutuhkan tapi tidak ada
+
+    decoded = base64.b64decode(encoded).decode("utf-8")
+    with open(CLIENT_SECRET_WEB_FILE, "w") as f:
+        f.write(decoded)
+    print("[Startup] client_secret_web.json dibuat dari environment variable.")
+
+
+_bootstrap_client_secret_from_env()
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-JANGAN-dipakai-di-production")
 app.register_blueprint(overseer.bp, url_prefix="/overseer")
@@ -177,6 +206,38 @@ def deactivate(video_id):
     return redirect(url_for("videos"))
 
 
+@app.route("/settings")
+def settings_page():
+    channel_id = session.get("channel_id")
+    if not channel_id:
+        return redirect(url_for("index"))
+
+    current = user_store.get_settings(channel_id)
+    return render_template_string(
+        SETTINGS_TEMPLATE,
+        sensitive_words=current["sensitive_words"],
+        ambiguous_template=current["ambiguous_template"],
+    )
+
+
+@app.route("/settings", methods=["POST"])
+def save_settings_route():
+    channel_id = session.get("channel_id")
+    if not channel_id:
+        return redirect(url_for("index"))
+
+    raw_words = request.form.get("sensitive_words", "")
+    # Pisah per baris, buang baris kosong dan spasi berlebih
+    words = [w.strip() for w in raw_words.splitlines() if w.strip()]
+
+    template = request.form.get("ambiguous_template", "").strip()
+    if not template:
+        template = user_store.DEFAULT_AMBIGUOUS_TEMPLATE
+
+    user_store.save_settings(channel_id, words, template)
+    return redirect(url_for("settings_page"))
+
+
 def _fetch_recent_videos(user: dict) -> list:
     """
     Ambil video dari uploads playlist channel user, filter yang
@@ -260,6 +321,73 @@ LOGIN_TEMPLATE = """
 <p>Login dengan akun Google (channel YouTube) untuk mulai.</p>
 <a class="button" href="/login">Login with Google</a>
 </div>
+</body>
+</html>
+"""
+
+SETTINGS_TEMPLATE = """
+<!doctype html>
+<html>
+<head>
+<title>Pengaturan - Comment Moderator</title>
+<style>
+""" + ui_layout.BASE_STYLE + """
+  .settings-form {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1.5rem; max-width: 600px;
+  }
+  .field { margin-bottom: 1.4rem; }
+  .field label { display: block; font-weight: 600; font-size: 0.88rem; margin-bottom: 0.4rem; }
+  .field .hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.6rem; line-height: 1.4; }
+  textarea, input[type=text] {
+    width: 100%; padding: 0.7rem 0.85rem; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 0.87rem; font-family: inherit; resize: vertical;
+  }
+  textarea { min-height: 120px; }
+  .save-btn {
+    background: var(--primary); color: white; border: none; padding: 0.65rem 1.4rem;
+    border-radius: 8px; font-weight: 600; font-size: 0.87rem; cursor: pointer;
+  }
+  .word-count { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+""" + ui_layout.sidebar_html("settings") + """
+  <div class="main">
+    <div class="topbar">
+      <h1>Pengaturan</h1>
+      <p>Kustomisasi kata sensitif dan template balasan</p>
+    </div>
+    <div class="page-content">
+      <form class="settings-form" method="post" action="/settings">
+        <div class="field">
+          <label>Kata/Frasa Sensitif Custom</label>
+          <p class="hint">
+            Satu kata atau frasa per baris. Komentar yang mengandung salah satu
+            dari ini akan dinilai lebih ketat oleh bot (cenderung dianggap
+            spam/hate dengan confidence tinggi).
+          </p>
+          <textarea name="sensitive_words" placeholder="contoh:&#10;judi online&#10;pinjol ilegal&#10;kata kasar tertentu">{{ sensitive_words | join('\\n') }}</textarea>
+        </div>
+
+        <div class="field">
+          <label>Template Balasan untuk Komentar Ambigu</label>
+          <p class="hint">
+            Dipakai otomatis saat bot tidak yakin kategori komentar setelah
+            negosiasi (bukan pakai LLM, supaya konsisten dan aman).
+          </p>
+          <input type="text" name="ambiguous_template" value="{{ ambiguous_template }}">
+        </div>
+
+        <button class="save-btn" type="submit">Simpan Pengaturan</button>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+""" + ui_layout.SIDEBAR_SCRIPT + """
+</script>
 </body>
 </html>
 """
@@ -370,12 +498,19 @@ VIDEOS_TEMPLATE = """
 """ + ui_layout.SIDEBAR_SCRIPT + """
 
 var logEntries = {};
+var seenDedupeKeys = new Set();
+var logCounter = 0;
+
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
 
 function renderLog() {
   var container = document.getElementById('log-container');
-  var emptyEl = document.getElementById('log-empty');
   var keys = Object.keys(logEntries).filter(function(k) { return !logEntries[k].dismissed; });
-  keys.sort().reverse();
+  keys.sort(function(a, b) { return logEntries[b].order - logEntries[a].order; });
 
   if (keys.length === 0) {
     container.innerHTML = '<p class="empty-state" id="log-empty">Belum ada aktivitas.</p>';
@@ -387,13 +522,22 @@ function renderLog() {
     var time = new Date(e.timestamp).toLocaleTimeString('id-ID');
     var level = ['info','success','warning','danger'].indexOf(e.level) !== -1 ? e.level : 'info';
     var dismissBtn = (level === 'success')
-      ? '<span class="log-dismiss" onclick="dismissLog(\'' + k + '\')">&times;</span>'
+      ? '<span class="log-dismiss" data-dismiss-key="' + k + '">&times;</span>'
       : '';
     return '<div class="log-entry log-' + level + '">' + dismissBtn +
-           '<span class="log-time">' + time + '</span>' +
-           '<span class="log-video">' + e.video_title + '</span>' +
-           e.message + '</div>';
+           '<span class="log-time">' + escapeHtml(time) + '</span>' +
+           '<span class="log-video">' + escapeHtml(e.video_title) + '</span>' +
+           escapeHtml(e.message) + '</div>';
   }).join('');
+
+  // Event delegation lewat data-attribute, BUKAN inline onclick dengan teks
+  // dinamis -- karena teks balasan dari LLM bisa mengandung tanda kutip yang
+  // merusak atribut onclick kalau ditempel langsung sebagai string.
+  container.querySelectorAll('[data-dismiss-key]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      dismissLog(el.getAttribute('data-dismiss-key'));
+    });
+  });
 }
 
 function dismissLog(key) {
@@ -408,20 +552,25 @@ async function refreshActivityLog() {
     var res = await fetch('/api/activity');
     var data = await res.json();
     (data.events || []).forEach(function(e) {
-      var key = e.timestamp + '|' + e.message;
-      if (!logEntries[key]) {
-        logEntries[key] = { data: e, dismissed: false };
-        // Heartbeat "belum ada komentar baru" otomatis hilang setelah 30 detik
-        if (e.message.indexOf('belum ada komentar baru') !== -1) {
-          (function(k) {
-            setTimeout(function() {
-              if (logEntries[k]) {
-                logEntries[k].dismissed = true;
-                renderLog();
-              }
-            }, 30000);
-          })(key);
-        }
+      // dedupeKey cuma dipakai untuk cek "sudah pernah diproses belum",
+      // TIDAK PERNAH ditaruh ke HTML/atribut -- jadi aman walau berisi
+      // tanda kutip atau karakter apapun dari teks balasan LLM.
+      var dedupeKey = e.timestamp + '|' + e.message;
+      if (seenDedupeKeys.has(dedupeKey)) return;
+      seenDedupeKeys.add(dedupeKey);
+
+      var id = 'log' + (logCounter++);
+      logEntries[id] = { data: e, dismissed: false, order: logCounter };
+
+      if (e.message.indexOf('belum ada komentar baru') !== -1) {
+        (function(realId) {
+          setTimeout(function() {
+            if (logEntries[realId]) {
+              logEntries[realId].dismissed = true;
+              renderLog();
+            }
+          }, 30000);
+        })(id);
       }
     });
     renderLog();

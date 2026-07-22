@@ -126,7 +126,15 @@ def execute_action(final_decision: str, item: dict, reply_text: str = None) -> N
 
 def process_comment(item: dict) -> None:
     """Jalankan satu komentar lewat seluruh pipeline: negosiasi -> (eskalasi) -> reply -> aksi."""
-    result = jalankan_negosiasi(_moderator, _classifier, item["author_id"], item["text"])
+    settings = user_store.get_settings(item["channel_id"])
+
+    result = jalankan_negosiasi(
+        _moderator,
+        _classifier,
+        item["author_id"],
+        item["text"],
+        custom_sensitive_words=settings["sensitive_words"],
+    )
     final_decision = result["final_decision"]
     reply_text = None
 
@@ -159,7 +167,7 @@ def process_comment(item: dict) -> None:
     if final_decision == "REPLY":
         reply_text = generate_reply(_responder, item["text"], item.get("video_title", ""))
     elif final_decision == "REPLY_TEMPLATE":
-        reply_text = REPLY_TEMPLATE_AMBIGUOUS
+        reply_text = settings["ambiguous_template"]
 
     execute_action(final_decision, item, reply_text)
 

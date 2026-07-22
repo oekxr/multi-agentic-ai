@@ -1,0 +1,152 @@
+[
+  {
+    "text": "Video ini sangat membantu, terima kasih banyak kak!",
+    "expected_category": "normal",
+    "expected_decisions": ["REPLY", "NO_ACTION"]
+  },
+  {
+    "text": "Wah keren banget kontennya, sukses terus ya channel-nya",
+    "expected_category": "normal",
+    "expected_decisions": ["REPLY", "NO_ACTION"]
+  },
+  {
+    "text": "Suka banget sama editing videonya, rapi",
+    "expected_category": "normal",
+    "expected_decisions": ["REPLY", "NO_ACTION"]
+  },
+  {
+    "text": "Baru pertama nonton channel ini, langsung subscribe",
+    "expected_category": "normal",
+    "expected_decisions": ["REPLY", "NO_ACTION"]
+  },
+  {
+    "text": "Semoga makin berkembang usahanya kak",
+    "expected_category": "normal",
+    "expected_decisions": ["REPLY", "NO_ACTION"]
+  },
+  {
+    "text": "Terima kasih infonya, sangat bermanfaat buat tugas kuliah saya",
+    "expected_category": "normal",
+    "expected_decisions": ["REPLY", "NO_ACTION"]
+  },
+  {
+    "text": "KLIK LINK DI BIO SAYA UNTUK HADIAH GRATIS!!! www.totallynotscam.xyz",
+    "expected_category": "spam",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  },
+  {
+    "text": "MENANGKAN IPHONE GRATIS SEKARANG KLIK www.hadiah-palsu.xyz",
+    "expected_category": "spam",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  },
+  {
+    "text": "cek promo terbaru di link profil ya guys, buruan sebelum habis",
+    "expected_category": "spam",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  },
+  {
+    "text": "buruan order sebelum kehabisan, DM aja ya untuk harga grosir",
+    "expected_category": "spam",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  },
+  {
+    "text": "promo murah cek link di bio ya guys!!",
+    "expected_category": "spam",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  },
+  {
+    "text": "JOIN GRUP TELEGRAM SAYA UNTUK BONUS 100% klik t.me/scamgroup",
+    "expected_category": "spam",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  },
+  {
+    "text": "bang beli kacamatanya dimana?",
+    "expected_category": "question",
+    "expected_decisions": ["REPLY"]
+  },
+  {
+    "text": "ini rekamannya pake kamera apa ya?",
+    "expected_category": "question",
+    "expected_decisions": ["REPLY"]
+  },
+  {
+    "text": "kapan upload video part 2 nya kak?",
+    "expected_category": "question",
+    "expected_decisions": ["REPLY"]
+  },
+  {
+    "text": "aplikasi editing yang dipakai apa nama nya?",
+    "expected_category": "question",
+    "expected_decisions": ["REPLY"]
+  },
+  {
+    "text": "ini lokasi syuting nya dimana ya kak?",
+    "expected_category": "question",
+    "expected_decisions": ["REPLY"]
+  },
+  {
+    "text": "harga produknya berapa ya kak, ada info lebih lanjut?",
+    "expected_category": "question",
+    "expected_decisions": ["REPLY"]
+  },
+  {
+    "text": "Video ini... menarik... entahlah.",
+    "expected_category": "ambiguous",
+    "expected_decisions": ["REPLY_TEMPLATE", "ESCALATE_TO_HUMAN", "NO_ACTION"]
+  },
+  {
+    "text": "wih keren juga ya... atau enggak sih, entah kenapa aneh gitu",
+    "expected_category": "ambiguous",
+    "expected_decisions": ["REPLY_TEMPLATE", "ESCALATE_TO_HUMAN", "NO_ACTION"]
+  },
+  {
+    "text": "1:03:29",
+    "expected_category": "ambiguous",
+    "expected_decisions": ["REPLY_TEMPLATE", "ESCALATE_TO_HUMAN", "NO_ACTION"]
+  },
+  {
+    "text": "si dianggep tuh",
+    "expected_category": "ambiguous",
+    "expected_decisions": ["REPLY_TEMPLATE", "ESCALATE_TO_HUMAN", "NO_ACTION"]
+  },
+  {
+    "text": "hmm gatau deh ini bagus apa engga...",
+    "expected_category": "ambiguous",
+    "expected_decisions": ["REPLY_TEMPLATE", "ESCALATE_TO_HUMAN", "NO_ACTION"]
+  },
+  {
+    "text": "lumayan lah... ya gitu deh",
+    "expected_category": "ambiguous",
+    "expected_decisions": ["REPLY_TEMPLATE", "ESCALATE_TO_HUMAN", "NO_ACTION"]
+  },
+  {
+    "text": "Dasar bodoh, orang seperti kamu tidak pantas bikin konten",
+    "expected_category": "hate",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  },
+  {
+    "text": "Konten sampah, yang bikin harusnya introspeksi diri, memalukan",
+    "expected_category": "hate",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  },
+  {
+    "text": "Norak banget sih orangnya, gak level bikin konten kayak gini",
+    "expected_category": "hate",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  },
+  {
+    "text": "Payah, mendingan berhenti bikin video daripada bikin malu terus",
+    "expected_category": "hate",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  },
+  {
+    "text": "Muak lihat muka lo di setiap video, konten receh gak mutu",
+    "expected_category": "hate",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  },
+  {
+    "text": "Dasar tolol, gak ada otaknya bikin konten begini",
+    "expected_category": "hate",
+    "expected_decisions": ["HIDE", "HIDE_BAN", "DELETE"]
+  }
+]

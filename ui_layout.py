@@ -88,6 +88,7 @@ BASE_STYLE = """
 def sidebar_html(active: str) -> str:
     beranda_class = "active" if active == "beranda" else ""
     konfirmasi_class = "active" if active == "konfirmasi" else ""
+    settings_class = "active" if active == "settings" else ""
     return f"""
     <div class="menu-toggle" onclick="toggleSidebar()">&#9776;</div>
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
@@ -98,6 +99,7 @@ def sidebar_html(active: str) -> str:
         <a href="/overseer" class="{konfirmasi_class}">
           Konfirmasi <span class="nav-badge" id="pending-badge">0</span>
         </a>
+        <a href="/settings" class="{settings_class}">Pengaturan</a>
       </nav>
       <div class="sidebar-footer">
         <a href="/logout">Logout</a>

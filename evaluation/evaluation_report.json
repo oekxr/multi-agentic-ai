@@ -1,0 +1,574 @@
+{
+  "summary": {
+    "n_items": 30,
+    "accuracy": 0.9,
+    "effectiveness": 0.9,
+    "efficiency": {
+      "avg_turns_per_item": 3.07,
+      "avg_seconds_per_item": 4.76
+    },
+    "explainability": 1.0,
+    "hallucination_rate": 0.0,
+    "accuracy_per_category": {
+      "normal": 1.0,
+      "spam": 1.0,
+      "question": 1.0,
+      "ambiguous": 0.833,
+      "hate": 0.667
+    }
+  },
+  "details": [
+    {
+      "text": "Video ini sangat membantu, terima kasih banyak kak!",
+      "expected_category": "normal",
+      "predicted_category": "normal",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 6.01,
+      "alasan": "Komentar bersifat positif dan bersyukur tanpa unsur promosi, spam, atau ujaran kebencian.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Wah keren banget kontennya, sukses terus ya channel-nya",
+      "expected_category": "normal",
+      "predicted_category": "normal",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 4.0,
+      "alasan": "Komentar bersifat positif dan tidak mengandung unsur spam atau hate, hanya memberikan pujian sederhana.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Suka banget sama editing videonya, rapi",
+      "expected_category": "normal",
+      "predicted_category": "normal",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 3.76,
+      "alasan": "Komentar bersifat pujian sederhana tanpa unsur promosi, spam, atau ujaran kebencian.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Baru pertama nonton channel ini, langsung subscribe",
+      "expected_category": "normal",
+      "predicted_category": "normal",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 3.48,
+      "alasan": "Komentar bersifat positif dan tidak mengandung promosi berulang, link, atau ujaran kebencian. Tidak ada indikasi spam atau hate.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Semoga makin berkembang usahanya kak",
+      "expected_category": "normal",
+      "predicted_category": "normal",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 2.73,
+      "alasan": "Komentar bersifat positif dan tidak mengandung unsur spam atau ujaran kebencian.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Terima kasih infonya, sangat bermanfaat buat tugas kuliah saya",
+      "expected_category": "normal",
+      "predicted_category": "normal",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 3.05,
+      "alasan": "Komentar bersifat positif, tidak mengandung spam, hate, atau pertanyaan. Pasti merupakan komentar normal.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "KLIK LINK DI BIO SAYA UNTUK HADIAH GRATIS!!! www.totallynotscam.xyz",
+      "expected_category": "spam",
+      "predicted_category": "spam",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "DELETE",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 4.32,
+      "alasan": "Komentar mempromosikan link eksternal dengan klaim hadiah gratis, jelas merupakan spam phishing.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "MENANGKAN IPHONE GRATIS SEKARANG KLIK www.hadiah-palsu.xyz",
+      "expected_category": "spam",
+      "predicted_category": "spam",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "DELETE",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 4.49,
+      "alasan": "Komentar mempromosikan hadiah iPhone gratis dengan tautan yang jelas berpotensi phishing, sehingga merupakan spam eksplisit.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "cek promo terbaru di link profil ya guys, buruan sebelum habis",
+      "expected_category": "spam",
+      "predicted_category": "spam",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "HIDE_BAN",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 7.55,
+      "alasan": "Komentar mengajak mengunjungi link profil untuk promo, jelas promosi iklan yang mengganggu. User memiliki riwayat spam, sehingga penilaian lebih ketat.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "buruan order sebelum kehabisan, DM aja ya untuk harga grosir",
+      "expected_category": "spam",
+      "predicted_category": "spam",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "HIDE_BAN",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 9.26,
+      "alasan": "Komentar mengajak DM untuk harga grosir, jelas promosi produk tanpa link, sehingga merupakan spam.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "promo murah cek link di bio ya guys!!",
+      "expected_category": "spam",
+      "predicted_category": "spam",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "HIDE_BAN",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 4.72,
+      "alasan": "Komentar mengajak klik link di bio untuk promo murah, jelas promosi berulang; riwayat spam user menambah tingkat kepercayaan.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "JOIN GRUP TELEGRAM SAYA UNTUK BONUS 100% klik t.me/scamgroup",
+      "expected_category": "spam",
+      "predicted_category": "spam",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "HIDE_BAN",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 4.58,
+      "alasan": "Mengandung link promosi Telegram dengan klaim bonus, jelas merupakan spam.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "bang beli kacamatanya dimana?",
+      "expected_category": "question",
+      "predicted_category": "question",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 3.21,
+      "alasan": "Komentar berupa pertanyaan sederhana tentang tempat membeli kacamata, tidak mengandung promosi, link, atau ujaran kebencian.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "ini rekamannya pake kamera apa ya?",
+      "expected_category": "question",
+      "predicted_category": "question",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 3.41,
+      "alasan": "Komentar jelas bertanya tentang jenis kamera, tidak mengandung unsur spam atau hate.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "kapan upload video part 2 nya kak?",
+      "expected_category": "question",
+      "predicted_category": "question",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 5.02,
+      "alasan": "Komentar menanyakan kapan video part 2 akan diupload, tidak mengandung promosi, spam, atau ujaran kebencian.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "aplikasi editing yang dipakai apa nama nya?",
+      "expected_category": "question",
+      "predicted_category": "question",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 3.25,
+      "alasan": "Komentar jelas berupa pertanyaan tentang nama aplikasi editing, tidak mengandung unsur spam atau hate.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "ini lokasi syuting nya dimana ya kak?",
+      "expected_category": "question",
+      "predicted_category": "question",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 3.68,
+      "alasan": "Komentar jelas bertanya lokasi syuting, tidak mengandung spam atau hate.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "harga produknya berapa ya kak, ada info lebih lanjut?",
+      "expected_category": "question",
+      "predicted_category": "question",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "REPLY"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 4.16,
+      "alasan": "Komentar jelas meminta informasi harga produk, tidak mengandung promosi atau ujaran kebencian.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Video ini... menarik... entahlah.",
+      "expected_category": "ambiguous",
+      "predicted_category": "normal",
+      "category_correct": false,
+      "confidence": 0.75,
+      "expected_decisions": [
+        "REPLY_TEMPLATE",
+        "ESCALATE_TO_HUMAN",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": false,
+      "turn_count": 3,
+      "elapsed_seconds": 6.08,
+      "alasan": "Komentar hanya menyatakan pendapat singkat tentang video tanpa unsur spam, hate, atau pertanyaan. Meskipun pengguna memiliki riwayat spam, isi komentar tidak menunjukkan promosi atau konten berbahaya.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "wih keren juga ya... atau enggak sih, entah kenapa aneh gitu",
+      "expected_category": "ambiguous",
+      "predicted_category": "ambiguous",
+      "category_correct": true,
+      "confidence": 0.55,
+      "expected_decisions": [
+        "REPLY_TEMPLATE",
+        "ESCALATE_TO_HUMAN",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY_TEMPLATE",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 4.32,
+      "alasan": "Komentar tidak menunjukkan unsur spam atau hate, hanya ungkapan ketidakpastian yang tidak jelas.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "1:03:29",
+      "expected_category": "ambiguous",
+      "predicted_category": "ambiguous",
+      "category_correct": true,
+      "confidence": 0.55,
+      "expected_decisions": [
+        "REPLY_TEMPLATE",
+        "ESCALATE_TO_HUMAN",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY_TEMPLATE",
+      "decision_effective": true,
+      "turn_count": 5,
+      "elapsed_seconds": 8.89,
+      "alasan": "Komentar hanya berupa “1:03:29” tanpa konteks tambahan, sehingga tidak jelas apakah itu pertanyaan, komentar biasa, atau spam. Tidak ada indikasi promosi, ujaran kebencian, atau permintaan informasi yang spesifik.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "si dianggep tuh",
+      "expected_category": "ambiguous",
+      "predicted_category": "ambiguous",
+      "category_correct": true,
+      "confidence": 0.55,
+      "expected_decisions": [
+        "REPLY_TEMPLATE",
+        "ESCALATE_TO_HUMAN",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY_TEMPLATE",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 5.1,
+      "alasan": "Kalimat singkat dan tidak jelas konteksnya, sehingga tidak dapat dipastikan apakah bersifat pertanyaan, komentar normal, atau spam.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "hmm gatau deh ini bagus apa engga...",
+      "expected_category": "ambiguous",
+      "predicted_category": "ambiguous",
+      "category_correct": true,
+      "confidence": 0.55,
+      "expected_decisions": [
+        "REPLY_TEMPLATE",
+        "ESCALATE_TO_HUMAN",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY_TEMPLATE",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 5.65,
+      "alasan": "Komentar bersifat tidak jelas dan bersifat pertanyaan informal, tidak menunjukkan niat spam atau hate.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "lumayan lah... ya gitu deh",
+      "expected_category": "ambiguous",
+      "predicted_category": "ambiguous",
+      "category_correct": true,
+      "confidence": 0.55,
+      "expected_decisions": [
+        "REPLY_TEMPLATE",
+        "ESCALATE_TO_HUMAN",
+        "NO_ACTION"
+      ],
+      "final_decision": "REPLY_TEMPLATE",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 4.14,
+      "alasan": "Kalimat singkat dan tidak jelas maksudnya, dapat diartikan sebagai komentar biasa atau pertanyaan ringan, sehingga tidak dapat dipastikan.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Dasar bodoh, orang seperti kamu tidak pantas bikin konten",
+      "expected_category": "hate",
+      "predicted_category": "hate",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "HIDE_BAN",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 4.37,
+      "alasan": "Komentar mengandung bahasa penghinaan dan penolakan terhadap kemampuan orang lain, jelas bersifat kebencian pribadi.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Konten sampah, yang bikin harusnya introspeksi diri, memalukan",
+      "expected_category": "hate",
+      "predicted_category": "normal",
+      "category_correct": false,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": false,
+      "turn_count": 3,
+      "elapsed_seconds": 3.24,
+      "alasan": "Komentar menyatakan kritik terhadap konten tanpa mengandung ujaran kebencian atau promosi spam.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Norak banget sih orangnya, gak level bikin konten kayak gini",
+      "expected_category": "hate",
+      "predicted_category": "normal",
+      "category_correct": false,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "REPLY",
+      "decision_effective": false,
+      "turn_count": 3,
+      "elapsed_seconds": 4.54,
+      "alasan": "Komentar hanya mengkritik konten tanpa menyasar kelompok tertentu atau mempromosikan sesuatu.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Payah, mendingan berhenti bikin video daripada bikin malu terus",
+      "expected_category": "hate",
+      "predicted_category": "hate",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "HIDE_BAN",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 5.78,
+      "alasan": "Komentar mengandung hinaan dan ancaman untuk berhenti membuat video, jelas bersifat harassing.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Muak lihat muka lo di setiap video, konten receh gak mutu",
+      "expected_category": "hate",
+      "predicted_category": "hate",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "HIDE_BAN",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 5.24,
+      "alasan": "Komentar mengandung hinaan dan penghinaan terhadap penampilan serta kualitas konten, menunjukkan perilaku harassing.",
+      "explainable": true,
+      "hallucinated": false
+    },
+    {
+      "text": "Dasar tolol, gak ada otaknya bikin konten begini",
+      "expected_category": "hate",
+      "predicted_category": "hate",
+      "category_correct": true,
+      "confidence": 0.95,
+      "expected_decisions": [
+        "HIDE",
+        "HIDE_BAN",
+        "DELETE"
+      ],
+      "final_decision": "HIDE_BAN",
+      "decision_effective": true,
+      "turn_count": 3,
+      "elapsed_seconds": 4.9,
+      "alasan": "Komentar mengandung hinaan dan penghinaan yang jelas menargetkan individu, sehingga termasuk kategori hate. Tidak ada unsur spam atau link. Severity sedang karena tidak mengandung ancaman eksplisit atau konten ilegal.",
+      "explainable": true,
+      "hallucinated": false
+    }
+  ]
+}

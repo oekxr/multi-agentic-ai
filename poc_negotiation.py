@@ -343,11 +343,27 @@ def parse_final_decision(chat_history: list[dict]) -> str:
     return decision
 
 
+def parse_alasan(chat_history: list[dict]) -> str:
+    """
+    Cari ALASAN terakhir yang diberikan Classifier. Dipakai untuk metrik
+    Explainability -- mengecek apakah agent memberi alasan yang bermakna,
+    bukan cuma keputusan tanpa penjelasan.
+    """
+    alasan = ""
+    for msg in chat_history:
+        content = msg.get("content") or ""
+        match = re.search(r"ALASAN:\s*(.+?)(?:\n\n|\Z)", content, re.DOTALL)
+        if match:
+            alasan = match.group(1).strip()
+    return alasan
+
+
 def jalankan_negosiasi(
     moderator: autogen.ConversableAgent,
     classifier: autogen.ConversableAgent,
     author_id: str,
     komentar: str,
+    custom_sensitive_words: list = None,
 ) -> dict:
     print("\n" + "=" * 70)
     print(f"AUTHOR: {author_id}")
@@ -361,6 +377,18 @@ def jalankan_negosiasi(
     pesan_awal = f'Tolong nilai komentar berikut ini:\n\n"{komentar}"\n\n'
     if riwayat:
         pesan_awal += f"{riwayat}\n\n"
+
+    if custom_sensitive_words:
+        kata_list = ", ".join(f'"{w}"' for w in custom_sensitive_words)
+        pesan_awal += (
+            f"[KATA SENSITIF CUSTOM DARI PEMILIK CHANNEL] Pemilik channel ini secara "
+            f"khusus menandai kata/frasa berikut sebagai sensitif dan ingin ditindak "
+            f"tegas kalau muncul: {kata_list}. Kalau salah satu dari kata ini muncul "
+            f"dalam komentar (baik utuh maupun sebagai bagian dari kata lain), "
+            f"perlakukan sebagai indikasi kuat spam/hate dengan confidence tinggi dan "
+            f"SEVERITY tinggi, terlepas dari konteks kalimatnya secara umum.\n\n"
+        )
+
     pesan_awal += "Berikan KATEGORI, CONFIDENCE, SEVERITY, dan ALASAN sesuai format."
 
     chat_result = moderator.initiate_chat(
@@ -371,6 +399,7 @@ def jalankan_negosiasi(
 
     category, confidence = parse_classification(chat_result.chat_history)
     final_decision = parse_final_decision(chat_result.chat_history)
+    alasan = parse_alasan(chat_result.chat_history)
 
     memory_store.record_decision(
         author_id=author_id,
@@ -387,6 +416,8 @@ def jalankan_negosiasi(
         "category": category,
         "confidence": confidence,
         "final_decision": final_decision,
+        "alasan": alasan,
+        "turn_count": len(chat_result.chat_history),
     }
 
 
