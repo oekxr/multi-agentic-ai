@@ -77,6 +77,18 @@ _bootstrap_client_secret_from_env()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-JANGAN-dipakai-di-production")
+
+if os.environ.get("RENDER"):
+    # Render (dan platform serupa) menghentikan HTTPS di proxy mereka, lalu
+    # meneruskan request ke aplikasi kita sebagai HTTP biasa di jaringan
+    # internal. Tanpa ProxyFix, Flask salah mengira request.url berskema
+    # http://, padahal aslinya https:// -- ini yang menyebabkan
+    # InsecureTransportError saat fetch_token, meskipun koneksi sungguhan
+    # dari browser sudah HTTPS. ProxyFix membaca header X-Forwarded-Proto
+    # dari proxy untuk mengoreksi ini.
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.register_blueprint(overseer.bp, url_prefix="/overseer")
 
 
