@@ -187,6 +187,7 @@ def videos():
         videos=video_list,
         active_ids=active_ids,
         lookback_days=VIDEO_LOOKBACK_DAYS,
+        scout_interval=orchestrator.SCOUT_POLL_INTERVAL_SECONDS,
     )
 
 
@@ -197,6 +198,15 @@ def api_activity():
         return {"events": []}, 401
     events = activity_log.get_recent_events(channel_id, limit=30)
     return {"events": events}
+
+
+@app.route("/api/activity/dismiss/<int:event_id>", methods=["POST"])
+def api_activity_dismiss(event_id):
+    channel_id = session.get("channel_id")
+    if not channel_id:
+        return {"ok": False}, 401
+    activity_log.dismiss_event(channel_id, event_id)
+    return {"ok": True}
 
 
 @app.route("/activate/<video_id>", methods=["POST"])
@@ -496,7 +506,7 @@ VIDEOS_TEMPLATE = """
 
         <div class="scroll-box">
           <h2 class="panel-title"><span class="live-dot"></span>Status Bot</h2>
-          <p class="panel-subtitle">Update tiap 5 detik</p>
+          <p class="panel-subtitle">Bot memeriksa komentar baru tiap {{ scout_interval }} detik</p>
           <div id="log-container">
             <p class="empty-state" id="log-empty">Belum ada aktivitas.</p>
           </div>
@@ -510,8 +520,6 @@ VIDEOS_TEMPLATE = """
 """ + ui_layout.SIDEBAR_SCRIPT + """
 
 var logEntries = {};
-var seenDedupeKeys = new Set();
-var logCounter = 0;
 
 function escapeHtml(str) {
   var div = document.createElement('div');
@@ -522,7 +530,7 @@ function escapeHtml(str) {
 function renderLog() {
   var container = document.getElementById('log-container');
   var keys = Object.keys(logEntries).filter(function(k) { return !logEntries[k].dismissed; });
-  keys.sort(function(a, b) { return logEntries[b].order - logEntries[a].order; });
+  keys.sort(function(a, b) { return logEntries[b].data.id - logEntries[a].data.id; });
 
   if (keys.length === 0) {
     container.innerHTML = '<p class="empty-state" id="log-empty">Belum ada aktivitas.</p>';
@@ -552,10 +560,23 @@ function renderLog() {
   });
 }
 
-function dismissLog(key) {
-  if (logEntries[key]) {
-    logEntries[key].dismissed = true;
-    renderLog();
+async function dismissLog(key) {
+  var entry = logEntries[key];
+  if (!entry) return;
+
+  // Optimistic UI: sembunyikan langsung di browser tanpa nunggu respons
+  // server, biar terasa instan.
+  entry.dismissed = true;
+  renderLog();
+
+  // Beri tahu SERVER juga event mana yang sudah di-dismiss -- supaya
+  // statusnya tetap tersimpan meskipun halaman di-refresh atau user
+  // pindah halaman lalu kembali lagi (server yang jadi sumber kebenaran,
+  // bukan cuma memori browser yang hilang tiap reload).
+  try {
+    await fetch('/api/activity/dismiss/' + entry.data.id, { method: 'POST' });
+  } catch (err) {
+    console.error('Gagal menyimpan status dismiss ke server:', err);
   }
 }
 
@@ -564,25 +585,17 @@ async function refreshActivityLog() {
     var res = await fetch('/api/activity');
     var data = await res.json();
     (data.events || []).forEach(function(e) {
-      // dedupeKey cuma dipakai untuk cek "sudah pernah diproses belum",
-      // TIDAK PERNAH ditaruh ke HTML/atribut -- jadi aman walau berisi
-      // tanda kutip atau karakter apapun dari teks balasan LLM.
-      var dedupeKey = e.timestamp + '|' + e.message;
-      if (seenDedupeKeys.has(dedupeKey)) return;
-      seenDedupeKeys.add(dedupeKey);
+      var key = 'log' + e.id;
+      if (logEntries[key]) return; // sudah pernah diterima, jangan dobel
 
-      var id = 'log' + (logCounter++);
-      logEntries[id] = { data: e, dismissed: false, order: logCounter };
+      logEntries[key] = { data: e, dismissed: false };
 
       if (e.message.indexOf('belum ada komentar baru') !== -1) {
-        (function(realId) {
+        (function(k) {
           setTimeout(function() {
-            if (logEntries[realId]) {
-              logEntries[realId].dismissed = true;
-              renderLog();
-            }
+            if (logEntries[k]) dismissLog(k);
           }, 30000);
-        })(id);
+        })(key);
       }
     });
     renderLog();
